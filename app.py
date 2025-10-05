@@ -65,20 +65,18 @@ class CURPGenerator:
         self.errores = []
     
     def validar_nombre_apellido(self, texto, tipo):
-        """Valida que el nombre o apellido exista en la base de datos"""
         texto_limpio = self.limpiar_texto(texto)
         
         if tipo == 'nombre':
             if texto_limpio not in self.NOMBRES_VALIDOS:
                 return False, f"Error Sintáctico: No se encontró el nombre '{texto}'"
-        else:  # apellido
+        else:  
             if texto_limpio not in self.APELLIDOS_VALIDOS:
                 return False, f"Error Sintáctico: No se encontró el apellido '{texto}'"
         
         return True, None
     
     def limpiar_texto(self, texto):
-        """Elimina acentos y caracteres especiales"""
         texto = texto.upper().strip()
         reemplazos = {
             'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
@@ -89,7 +87,6 @@ class CURPGenerator:
         return texto
     
     def obtener_primera_vocal(self, texto):
-        """Obtiene la primera vocal interna del texto"""
         vocales = 'AEIOU'
         for i in range(1, len(texto)):
             if texto[i] in vocales:
@@ -97,7 +94,6 @@ class CURPGenerator:
         return 'X'
     
     def obtener_primera_consonante_interna(self, texto):
-        """Obtiene la primera consonante interna"""
         consonantes = 'BCDFGHJKLMNPQRSTVWXYZ'
         for i in range(1, len(texto)):
             if texto[i] in consonantes:
@@ -105,7 +101,6 @@ class CURPGenerator:
         return 'X'
     
     def procesar_nombre(self, nombre):
-        """Procesa nombres compuestos con María o José"""
         nombres = nombre.strip().split()
         if len(nombres) > 1:
             primer_nombre = nombres[0].upper()
@@ -116,24 +111,20 @@ class CURPGenerator:
     def generar_curp(self, apellido_paterno, apellido_materno, nombre, dia, mes, anio, sexo, estado):
         self.errores = []
         
-        # Validar campos vacíos
         if not all([apellido_paterno, apellido_materno, nombre, dia, mes, anio, sexo, estado]):
             self.errores.append("Todos los campos son obligatorios")
             return None
         
-        # Validar apellido paterno
         es_valido, error = self.validar_nombre_apellido(apellido_paterno, 'apellido')
         if not es_valido:
             self.errores.append(error)
             return None
         
-        # Validar apellido materno
         es_valido, error = self.validar_nombre_apellido(apellido_materno, 'apellido')
         if not es_valido:
             self.errores.append(error)
             return None
         
-        # Procesar y validar nombre
         nombre_procesado = self.procesar_nombre(nombre)
         primer_nombre = nombre_procesado.split()[0]
         
@@ -142,74 +133,59 @@ class CURPGenerator:
             self.errores.append(error)
             return None
         
-        # Limpiar textos
         ap_paterno = self.limpiar_texto(apellido_paterno)
         ap_materno = self.limpiar_texto(apellido_materno)
         nombre_limpio = self.limpiar_texto(primer_nombre)
         
-        # Construir CURP
         curp = ""
         
-        # Posición 1-2: Primera letra y primera vocal del apellido paterno
         curp += ap_paterno[0]
         curp += self.obtener_primera_vocal(ap_paterno)
         
-        # Posición 3: Primera letra del apellido materno
         curp += ap_materno[0]
         
-        # Posición 4: Primera letra del nombre
         curp += nombre_limpio[0]
         
-        # Verificar palabras prohibidas en primeros 4 caracteres
         if curp[:4] in self.PALABRAS_PROHIBIDAS:
             curp = curp[0] + 'X' + curp[2:]
         
-        # Posición 5-10: Fecha (AAMMDD)
         try:
-            anio_str = str(anio)[-2:]  # Últimos 2 dígitos del año
+            anio_str = str(anio)[-2:]  
             mes_str = str(mes).zfill(2)
             dia_str = str(dia).zfill(2)
             curp += anio_str + mes_str + dia_str
             
-            # Para determinar el siglo
             fecha_completa = datetime(int(anio), int(mes), int(dia))
         except:
             self.errores.append("Fecha inválida")
             return None
         
-        # Posición 11: Sexo
         sexo_letra = sexo.upper()[0]
         if sexo_letra not in ['H', 'M']:
             self.errores.append("Sexo debe ser H (Hombre) o M (Mujer)")
             return None
         curp += sexo_letra
         
-        # Posición 12-13: Estado
         estado_codigo = self.ESTADOS.get(estado.upper())
         if not estado_codigo:
             self.errores.append("Estado no válido")
             return None
         curp += estado_codigo
         
-        # Posición 14-16: Consonantes internas
         curp += self.obtener_primera_consonante_interna(ap_paterno)
         curp += self.obtener_primera_consonante_interna(ap_materno)
         curp += self.obtener_primera_consonante_interna(nombre_limpio)
         
-        # Posición 17: Homoclave (siglo)
         if fecha_completa.year <= 1999:
             curp += str(random.randint(0, 9))
         else:
-            curp += chr(random.randint(65, 90))  # A-Z
-        
-        # Posición 18: Dígito verificador
+            curp += chr(random.randint(65, 90)) 
         digito_verificador = self.calcular_digito_verificador(curp)
         curp += str(digito_verificador)
         
         return curp
     
     def calcular_digito_verificador(self, curp_17):
-        """Calcula el dígito verificador (posición 18)"""
         valores = {
             '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
             'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14, 'F': 15, 'G': 16, 'H': 17,
@@ -235,7 +211,6 @@ class CURPGenerator:
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    # Limpiar archivos temporales de PLY si existen
     for archivo in ['parser.out', 'parsetab.py', '__pycache__']:
         try:
             if os.path.isfile(archivo):
@@ -247,13 +222,12 @@ def index():
             pass
     
     if request.method == 'GET':
-        return render_template("curp.html", 
+        return render_template("index.html", 
                              estados=CURPGenerator.ESTADOS.keys(),
                              dias=range(1, 32),
                              meses=range(1, 13),
                              anios=range(1920, 2026))
     
-    # Obtener datos del formulario
     apellido_paterno = request.form.get('apellido_paterno', '')
     apellido_materno = request.form.get('apellido_materno', '')
     nombre = request.form.get('nombre', '')
@@ -262,8 +236,6 @@ def index():
     anio = request.form.get('anio', '')
     sexo = request.form.get('sexo', '')
     estado = request.form.get('estado', '')
-    
-    # Generar CURP
     generador = CURPGenerator()
     curp = generador.generar_curp(
         apellido_paterno,
@@ -292,7 +264,7 @@ def index():
     }
     
     return render_template(
-        "curp.html",
+        "index.html",
         resultado=resultado,
         estados=CURPGenerator.ESTADOS.keys(),
         dias=range(1, 32),
@@ -301,4 +273,6 @@ def index():
     )
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    import sys
+    is_production = '--production' in sys.argv or os.environ.get('VERCEL')
+    app.run(debug=not is_production, port=5001)
